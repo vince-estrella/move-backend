@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "ActivityParticipant" ALTER COLUMN "status" SET DEFAULT 'PENDING',
+ALTER COLUMN "joinedAt" DROP NOT NULL,
+ALTER COLUMN "joinedAt" DROP DEFAULT;

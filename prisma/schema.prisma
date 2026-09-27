@@ -1,0 +1,189 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────
+// USER
+// ─────────────────────────────────────────────
+
+model User {
+  id                  String   @id @default(uuid())
+  name                String
+  email               String   @unique
+  passwordHash        String
+  profilePicture      String?
+  bio                 String?
+  createdAt           DateTime @default(now())
+
+  organizedActivities Activity[]            @relation("ActivityOrganizer")
+  sentInvitations     Invitation[]          @relation("InvitationSender")
+  receivedInvitations Invitation[]          @relation("InvitationReceiver")
+  participations      ActivityParticipant[]
+}
+
+// ─────────────────────────────────────────────
+// ACTIVITY TYPE
+// ─────────────────────────────────────────────
+
+model ActivityType {
+  id   String @id @default(uuid())
+  name String @unique
+
+  activities Activity[]
+}
+
+// ─────────────────────────────────────────────
+// LOCATION
+// ─────────────────────────────────────────────
+
+model Location {
+  id          String       @id @default(uuid())
+  name        String
+  description String?
+  address     String
+  latitude    Decimal      @db.Decimal(10, 7)
+  longitude   Decimal      @db.Decimal(10, 7)
+  type        LocationType
+
+  facilityDetails FacilityDetails?
+  activities      Activity[]
+}
+
+// ─────────────────────────────────────────────
+// FACILITY DETAILS
+// ─────────────────────────────────────────────
+
+model FacilityDetails {
+  id          String  @id @default(uuid())
+  locationId  String  @unique
+  bookingUrl  String?
+  rates       String?
+  amenities   String?
+  contactInfo String?
+
+  location Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────────────────────────
+// ACTIVITY
+// ─────────────────────────────────────────────
+
+model Activity {
+  id              String         @id @default(uuid())
+  organizerId     String
+  activityTypeId  String
+  locationId      String
+  title           String
+  description     String?
+  date            DateTime
+  startTime       DateTime
+  endTime         DateTime?
+  maxParticipants Int?
+  status          ActivityStatus
+  createdAt       DateTime       @default(now())
+
+  organizer    User                @relation("ActivityOrganizer", fields: [organizerId], references: [id])
+  activityType ActivityType        @relation(fields: [activityTypeId], references: [id])
+  location     Location            @relation(fields: [locationId], references: [id])
+  bookingProof BookingProof?
+  participants ActivityParticipant[]
+  invitations  Invitation[]
+
+  @@index([organizerId])
+  @@index([activityTypeId])
+  @@index([locationId])
+  @@index([date])
+}
+
+// ─────────────────────────────────────────────
+// BOOKING PROOF
+// ─────────────────────────────────────────────
+
+model BookingProof {
+  id          String             @id @default(uuid())
+  activityId  String             @unique
+  fileUrl     String
+  status      VerificationStatus
+  submittedAt DateTime           @default(now())
+  verifiedAt  DateTime?
+
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────────────────────────
+// ACTIVITY PARTICIPANT
+// ─────────────────────────────────────────────
+
+model ActivityParticipant {
+  id         String            @id @default(uuid())
+  activityId String
+  userId     String
+  status     ParticipantStatus @default(PENDING)
+  joinedAt   DateTime?
+
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([activityId, userId])
+  @@index([userId])
+}
+
+// ─────────────────────────────────────────────
+// INVITATION
+// ─────────────────────────────────────────────
+
+model Invitation {
+  id         String           @id @default(uuid())
+  activityId String
+  senderId   String
+  receiverId String
+  status     InvitationStatus
+  createdAt  DateTime         @default(now())
+
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  sender   User     @relation("InvitationSender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver User     @relation("InvitationReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@unique([activityId, receiverId])
+  @@index([receiverId])
+}
+
+// ─────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────
+
+enum LocationType {
+  FACILITY
+  OUTDOOR
+}
+
+enum ActivityStatus {
+  DRAFT
+  PENDING_VERIFICATION
+  CONFIRMED
+  REJECTED
+  CANCELLED
+}
+
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ParticipantStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  REMOVED
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
